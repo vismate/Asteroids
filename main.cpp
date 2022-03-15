@@ -1,21 +1,31 @@
 #include "ECS.hpp"
 #include <iostream>
+#include <fstream>
+#include <chrono>
 
 struct S
 {
     int a, b;
+    S(int a, int b) : a(a), b(b)
+    {
+        // std::cout << "CONSTRUCTED S : {" << a << ", " << b << "}" << std::endl;
+    }
     ~S()
     {
-        std::cout << "DESTROYED S : {" << a << ", " << b << "}" << std::endl;
+        //  std::cout << "DESTROYED S : {" << a << ", " << b << "}" << std::endl;
     }
 };
 
 struct G
 {
     int a, b;
+    G(int a, int b) : a(a), b(b)
+    {
+        // std::cout << "CONSTRUCTED G : {" << a << ", " << b << "}" << std::endl;
+    }
     ~G()
     {
-        std::cout << "DESTROYED G : {" << a << ", " << b << "}" << std::endl;
+        // std::cout << "DESTROYED G : {" << a << ", " << b << "}" << std::endl;
     }
 };
 
@@ -25,32 +35,118 @@ int f(S &)
     return 2;
 }
 
+#include <unistd.h>
+void log2file()
+{
+    using namespace Log;
+
+    std::ofstream file("../log.txt");
+    Logger log;
+
+    log
+        .set_flag(Flag::Ansi, false)
+        .set_flag(Flag::Tag, false)
+        .set_stream(file)
+        .set_datetime_format("%Y. %B %d. %H:%M:%S");
+
+    for (unsigned i = 0; i < 10; i++)
+    {
+        int sleep_for{rand() % 3};
+        log(format("Iteration: %u; Will sleep for: %ds", i, sleep_for));
+        sleep(sleep_for);
+    }
+}
+
 int main()
 {
+    Log::GLOBAL_LOG_LEVEL = Log::info;
+
+    Log::error("Hello");
+    Log::debug("Haha, fake error");
+    Log::info.set_flag(Log::Flag::Enabled, false).set_flag(Log::Flag::SuccesIfDisabled, false);
+    Log::debug(Log::format("Disabled logger returned %s", Log::info("This will not be visible") ? "true" : "false"));
+    Log::info.set_flag(Log::Flag::Enabled, true);
+    Log::info(Log::format("%s is an info of priority %u", "Formatted information", 5));
+
+    Log::info(sizeof(Log::info));
+
     ECS::Scene scene;
+    scene.reserve_component<S>(5120000);
+    scene.reserve_component<G>(5120000);
+    scene.reserve_entity(10000000);
 
-    ECS::EntityID e1 = scene.create();
-    scene.destroy(e1);
-    e1 = scene.create();
-    ECS::EntityID e2 = scene.create();
+    std::vector<ECS::Entity> entities;
+    entities.reserve(10000000);
 
-    std::cout << ECS::_impl::version_of(e1) << " " << ECS::_impl::version_of(e2) << std::endl;
+    for (int i = 0; i < 10000000; i++)
+    {
+        ECS::Entity entity(&scene, scene.create());
+        if (rand() % 33 == 0)
+        {
+            entity.assign<S>(1, 2);
+            entity.assign<G>(3, 4);
+        }
+        else if (rand() % 2)
+            entity.assign<G>(1, 2);
+        else
+            entity.assign<S>(3, 4);
 
-    scene.assign<S>(e1, 1, 2);
-    scene.assign<G>(e1, 1, 2);
+        entity.assign<int>(7);
 
-    std::cout << "bim" << std::endl;
-    scene.assign<S>(e2, S{3, 4});
-    std::cout << "bom" << std::endl;
-    scene.assign<G>(e2, 3, 4);
-    std::cout << "bem" << std::endl;
-    std::cout << scene.has_any<S, int, G>(e1) << std::endl;
+        entities.push_back(entity);
+    }
 
-    S &s = scene.get<S>(e1);
-    s.b = 600;
+    int ss{0}, gs{0}, ss_and_gs{0};
 
-    scene.for_each_component<S>(f);
-    scene.for_each_entity([](ECS::EntityID entity_id)
-                          { std::cout << "Entity: " << ECS::_impl::index_of(entity_id) << std::endl; });
+    ss = scene.component_count<S>();
+    gs = scene.component_count<G>();
+    ss_and_gs = ss + gs - scene.entity_count();
+
+    std::cout << ss << ", " << gs << ", " << ss_and_gs << std::endl;
+
+    for (auto [id, s, g] : scene.view<S, G>())
+    {
+        if (rand() % 2)
+            scene.remove<G>(id);
+        else
+            scene.remove<S>(id);
+    }
+
+    std::stringstream stream;
+    Log::debug.set_stream(stream);
+    Log::debug("before full itr");
+
+    auto start = std::chrono::high_resolution_clock::now();
+    size_t db{0};
+    scene.for_each_entity([&db](ECS::Scene *sc, ECS::EntityID id)
+                          {
+                             sc->get<int>(id) = 8;});
+    auto end = std::chrono::high_resolution_clock::now();
+
+    for (auto [id, g] : scene.view<G>())
+    {
+        g.a = (rand() % g.b) * 4;
+        for (int i = 0; i < 5; i++)
+            g.a *= 2;
+    }
+
+    Log::debug.set_stream(std::clog);
+    Log::debug(stream.str());
+    Log::debug("after full itr");
+
+    ss = scene.component_count<S>();
+    gs = scene.component_count<G>();
+    ss_and_gs = ss + gs - scene.entity_count();
+
+    entities[0].destroy();
+    entities[0].has<S>();
+
+    std::cout << ss << ", " << gs << ", " << ss_and_gs << std::endl;
+    std::cout << scene.entity_count() << std::endl;
+
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    Log::debug(Log::format("Took: %u", duration.count()));
+
     return 0;
 }
