@@ -33,18 +33,16 @@ namespace Graphics
             window_handle = glfwCreateWindow((int)width, (int)height, title, nullptr, nullptr);
             ASSERT(window_handle, "Could not create window");
 
-            activate();
+            make_current();
             vsync(true);
             Window::WINDOWS_ALIVE++;
         }
 
-        inline auto on_update() -> Window &
+        inline auto on_update() -> void
         {
-
-            return *this;
         }
 
-        inline auto activate() -> Window &
+        inline auto make_current() -> Window &
         {
             glfwMakeContextCurrent(window_handle);
             [[maybe_unused]] const GLenum glew_success = glewInit();
