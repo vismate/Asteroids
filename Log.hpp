@@ -43,6 +43,17 @@ namespace Log
 
     static size_t GLOBAL_LOG_LEVEL{0};
 
+    template <size_t BuffSize = 512>
+    inline auto format(const char *fmt, ...) -> std::string
+    {
+        char buff[BuffSize];
+        va_list args;
+        va_start(args, fmt);
+        vsnprintf(buff, BuffSize, fmt, args);
+        va_end(args);
+        return std::string{buff};
+    }
+
     class Logger
     {
 
@@ -160,18 +171,6 @@ namespace Log
     static Logger debug("DEBUG", Color::Green, 20);
     static Logger warn("WARNING", Color::Yellow, 30);
     static Logger error("ERROR", Color::Red, 40);
-
-    template <size_t BuffSize = 1024>
-    inline auto format(const char *fmt, ...) -> std::string
-    {
-        char buff[BuffSize];
-        va_list args;
-        va_start(args, fmt);
-        vsnprintf(buff, BuffSize, fmt, args);
-        va_end(args);
-        return std::string{buff};
-    }
-
 }
 
 #endif

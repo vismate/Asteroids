@@ -11,10 +11,9 @@
 /*
 TODO: Review _impl::SceneView::Iterator
 TODO: Try and eliminate all "friend" declarations
-TODO: Lots of testing and optimization.
 TODO: Write documentation
-TODO: Research paging
-TODO: Find a way to eliminate the need for AbstractComponentPool
+TODO: Paging
+TODO: Research groups
 */
 
 namespace ECS
@@ -369,7 +368,7 @@ namespace ECS
         template <typename T>
         inline auto has() const -> bool
         {
-            SOFT_ASSERT(exists(),"Tried to access an invalid entity");
+            SOFT_ASSERT(exists(), "Tried to access an invalid entity");
             return scene->has<T>(id);
         }
 
