@@ -1,5 +1,5 @@
 #include "ECS.hpp"
-#include "Graphics.hpp"
+#include "Application.hpp"
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -60,15 +60,72 @@ void log2file()
 
 #include <unistd.h>
 
+class GameLayer : public Event::AbstractLayer
+{
+        virtual inline auto on_attach() -> void override {}
+        virtual inline auto on_detach() -> void override {}
+        virtual inline auto on_event(const Event::AbstractEvent &event) -> bool override
+        {
+            if(event.type() == Event::Type::AppTick && rand()%25 == 0)
+            {
+                glClearColor(rand()%255/255.f, rand()%255/255.f, rand()%255/255.f, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+            }
+
+            return false;
+        }
+};
+static Graphics::Window *win;
+class BlockingLayer : public Event::AbstractLayer
+{
+        virtual inline auto on_attach() -> void override {}
+        virtual inline auto on_detach() -> void override {}
+        virtual inline auto on_event(const Event::AbstractEvent &event) -> bool override
+        {
+            static bool active{false};
+
+            if(event.type() == Event::Type::MouseButtonPressed)
+            {
+                if(Event::event_cast<Event::MouseButtonPressed>(event).button == 0) active = !active;
+            }
+            if(event.type() == Event::Type::MouseScrolled) win->set_fullscreen(false);
+          
+            return active;
+        }
+};
+
+class CustomApp : public Application::AbstractApplication
+{
+public:
+    void init()
+    {
+        window
+            .set_size(1366,768)
+            .set_title("Custom application");      
+
+        win = &window;      
+
+        auto size = window.get_size();
+        Log::info(size.first);
+        Log::info(size.second);
+
+        layer_stack.push(new GameLayer());
+        layer_stack.push(new BlockingLayer());
+    }
+
+};
+
 int main()
 {
 
-    // Graphics
+    // Application
     {
-        Graphics::Window window("Main window", 640, 360);
-
-        sleep(10);
+        CustomApp app;
+        app.init();
+        app.run();
     }
+
+    /*
 
     // Log
     {
@@ -165,5 +222,6 @@ int main()
         Log::debug(Log::format("Took: %u", duration.count()));
     }
 
+    */
     return 0;
 }
