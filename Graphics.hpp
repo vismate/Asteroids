@@ -124,15 +124,12 @@ namespace Graphics
         inline auto set_fullscreen(bool val) -> Window &
         {
             //In case one would call set_fullscreen(false) before set_fullscreen(true) first
-            static int width, height;
+            static int x{100}, y{100}, width{640}, height(480);
 
             if(val)
             {
-                auto size = get_size();
-                Log::debug(size.first);
-                Log::debug(size.second);
-                width = size.first;
-                height = size.second;
+                glfwGetWindowSize(window_handle, &width, &height);
+                glfwGetWindowPos(window_handle, &x, &y);
                 
                 const auto monitor =  glfwGetPrimaryMonitor();
                 const auto mode = glfwGetVideoMode(monitor);
@@ -140,7 +137,7 @@ namespace Graphics
             }
             else 
             {
-                glfwSetWindowMonitor(window_handle, nullptr, 100, 100, width, height, GLFW_DONT_CARE);
+                glfwSetWindowMonitor(window_handle, nullptr, x, y, width, height, GLFW_DONT_CARE);
             }
 
             return *this;

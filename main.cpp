@@ -66,7 +66,7 @@ class GameLayer : public Event::AbstractLayer
         virtual inline auto on_detach() -> void override {}
         virtual inline auto on_event(const Event::AbstractEvent &event) -> bool override
         {
-            if(event.type() == Event::Type::AppTick && rand()%25 == 0)
+            if(event.type() == Event::Type::AppTick && rand()%50 == 0)
             {
                 glClearColor(rand()%255/255.f, rand()%255/255.f, rand()%255/255.f, 1);
                 glClear(GL_COLOR_BUFFER_BIT);
@@ -75,7 +75,7 @@ class GameLayer : public Event::AbstractLayer
             return false;
         }
 };
-static Graphics::Window *win;
+
 class BlockingLayer : public Event::AbstractLayer
 {
         virtual inline auto on_attach() -> void override {}
@@ -88,7 +88,6 @@ class BlockingLayer : public Event::AbstractLayer
             {
                 if(Event::event_cast<Event::MouseButtonPressed>(event).button == 0) active = !active;
             }
-            if(event.type() == Event::Type::MouseScrolled) win->set_fullscreen(false);
           
             return active;
         }
@@ -101,13 +100,7 @@ public:
     {
         window
             .set_size(1366,768)
-            .set_title("Custom application");      
-
-        win = &window;      
-
-        auto size = window.get_size();
-        Log::info(size.first);
-        Log::info(size.second);
+            .set_title("Custom application");  
 
         layer_stack.push(new GameLayer());
         layer_stack.push(new BlockingLayer());
