@@ -235,6 +235,12 @@ namespace Graphics
                 callback(Event::WindowMoved(x, y));
             });
 
+            glfwSetWindowRefreshCallback(window_handle, [](GLFWwindow *window) -> void
+            {
+                auto &callback = WIN_EVT_CALLBACK(window);
+                callback(Event::WindowRedraw());               
+            });
+
         }
 
     private:

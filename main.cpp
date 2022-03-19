@@ -59,61 +59,102 @@ void log2file()
 }
 
 #include <unistd.h>
+#include <cmath>
+
+class CustomApp;
 
 class GameLayer : public Event::AbstractLayer
 {
-        virtual inline auto on_attach() -> void override {}
-        virtual inline auto on_detach() -> void override {}
-        virtual inline auto on_event(const Event::AbstractEvent &event) -> bool override
+    virtual inline auto on_attach() -> void override {}
+    virtual inline auto on_detach() -> void override {}
+    virtual inline auto on_event(const Event::AbstractEvent &event) -> bool override
+    {
+        static float theta = 0;
+        const static float speed = 0.5;
+        if (event.type() == Event::Type::AppTick)
         {
-            if(event.type() == Event::Type::AppTick && rand()%50 == 0)
-            {
-                glClearColor(rand()%255/255.f, rand()%255/255.f, rand()%255/255.f, 1);
-                glClear(GL_COLOR_BUFFER_BIT);
-            }
-
-            return false;
+            theta += Event::event_cast<Event::AppTick>(event).dt * speed;
+            if (theta >= 6.28)
+                theta -= 6.28;
+            glClearColor(std::sin(theta) / 2 + 0.5, std::sin(theta + 6.28 / 3) / 2 + 0.5, std::sin(theta + 2 * 6.28 / 3) / 2 + 0.5, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
         }
+        else if (event.type() == Event::Type::WindowRedraw)
+            glClear(GL_COLOR_BUFFER_BIT);
+
+        return false;
+    }
 };
 
 class BlockingLayer : public Event::AbstractLayer
 {
-        virtual inline auto on_attach() -> void override {}
-        virtual inline auto on_detach() -> void override {}
-        virtual inline auto on_event(const Event::AbstractEvent &event) -> bool override
-        {
-            static bool active{false};
-
-            if(event.type() == Event::Type::MouseButtonPressed)
-            {
-                if(Event::event_cast<Event::MouseButtonPressed>(event).button == 0) active = !active;
-            }
-          
-            return active;
-        }
+    virtual inline auto on_attach() -> void override {}
+    virtual inline auto on_detach() -> void override {}
+    virtual inline auto on_event(const Event::AbstractEvent &event) -> bool override;
 };
 
 class CustomApp : public Application::AbstractApplication
 {
+private:
+    Event::EventLoggerLayer *logger_layer;
+
 public:
     void init()
     {
         window
-            .set_size(1366,768)
-            .set_title("Custom application");  
+            .set_size(1366, 768)
+            .set_title("Custom application");
 
         layer_stack.push(new GameLayer());
         layer_stack.push(new BlockingLayer());
+
+        logger_layer = new Event::EventLoggerLayer();
+
+        (*logger_layer)
+            .blacklist_type(Event::Type::AppTick)
+            .blacklist_type(Event::Type::MouseMoved)
+            .logger
+                .set_datetime_format("[%H:%M:%S]");
+
+        layer_stack.push(logger_layer);
     }
 
+    inline auto get_window() -> Graphics::Window &
+    {
+        return window;
+    }
+
+    static inline auto get_instance() -> CustomApp &
+    {
+        static CustomApp instance;
+        return instance;
+    }
 };
+
+inline auto BlockingLayer::on_event(const Event::AbstractEvent &event) -> bool
+{
+    using namespace Event;
+    static bool active{false};
+    static bool fs{false};
+
+    if (event.type() == Type::MouseButtonPressed && event_cast<MouseButtonPressed>(event).button == 0)
+    {
+        active = !active;
+        Log::debug(active ? "Paused..." : "Unpaused...");
+        return true;
+    }
+    else if (event.type() == Type::KeyPressed && event_cast<KeyPressed>(event).key == 300)
+        CustomApp::get_instance().get_window().set_fullscreen(fs = !fs);
+
+    return event.type() != Type::WindowRedraw && active;
+}
 
 int main()
 {
 
     // Application
     {
-        CustomApp app;
+        auto &app = CustomApp::get_instance();
         app.init();
         app.run();
     }

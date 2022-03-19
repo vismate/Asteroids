@@ -3,6 +3,7 @@
 
 #include "Error.hpp"
 #include <vector>
+#include <unordered_set>
 
 #define EVT_IMPL_BOILERPLATE(_type, categories, debug_name)                     \
     virtual inline auto type() const->Type override                             \
@@ -25,6 +26,7 @@ namespace Event
         WindowFocus,
         WindowLostFocus,
         WindowMoved,
+        WindowRedraw,
         AppTick,
         KeyPressed,
         KeyReleased,
@@ -39,11 +41,11 @@ namespace Event
     {
         None = 0,
         Application = (1 << 0),
-        Input =       (1 << 1),
-        Keyboard =    (1 << 2),
-        Mouse =       (1 << 3),
+        Input = (1 << 1),
+        Keyboard = (1 << 2),
+        Mouse = (1 << 3),
         MouseButton = (1 << 4),
-        Window =      (1 << 5)
+        Window = (1 << 5)
     };
 
     inline auto operator|(Category a, Category b) -> size_t
@@ -75,11 +77,18 @@ namespace Event
         virtual inline auto on_attach() -> void {}
         virtual inline auto on_detach() -> void {}
         virtual inline auto on_event(const AbstractEvent &event) -> bool = 0;
+
+        virtual ~AbstractLayer(){};
     };
 
     class LayerStack
     {
     public:
+        ~LayerStack()
+        {
+            for (auto l : layers)
+                delete l;
+        }
         inline auto push(AbstractLayer *layer) -> void
         {
             layers.push_back(layer);
@@ -133,6 +142,12 @@ namespace Event
     {
     public:
         EVT_IMPL_BOILERPLATE(Type::WindowLostFocus, Category::Window, "WindowLostFocus");
+    };
+
+    class WindowRedraw : public AbstractEvent
+    {
+    public:
+        EVT_IMPL_BOILERPLATE(Type::WindowRedraw, Category::Window, "WindowRedraw");
     };
 
     class WindowMoved : public AbstractEvent
@@ -215,8 +230,39 @@ namespace Event
         const double x, y;
     };
 
-    
-    template<typename T>
+    class EventLoggerLayer : public AbstractLayer
+    {
+    public:
+
+        Log::Logger logger{"EVENT", Log::Color::Cyan, 5};
+
+        virtual inline auto on_event(const AbstractEvent &event) -> bool override
+        {
+            auto itr = std::find_if(cat_blacklist.begin(), cat_blacklist.end(), [&event](Category cat){return event.in_category(cat);});
+
+            if( not type_blacklist.contains(event.type()) && itr == cat_blacklist.end())
+                logger(event.debug_string());
+            return false;
+        }
+
+        inline auto blacklist_category(Category category) -> EventLoggerLayer &
+        {
+            cat_blacklist.push_back(category);
+            return *this;
+        }
+
+        inline auto blacklist_type(Type type) -> EventLoggerLayer &
+        {
+            type_blacklist.emplace(type);
+            return *this;
+        }
+
+    private:
+        std::vector<Category> cat_blacklist;
+        std::unordered_set<Type> type_blacklist;
+    };
+
+    template <typename T>
     inline auto event_cast(const AbstractEvent &event) -> const T &
     {
         static_assert(std::is_base_of_v<AbstractEvent, T>, "T must derive from AbstractEvent to use event_cast ");
