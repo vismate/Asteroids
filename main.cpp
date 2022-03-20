@@ -77,11 +77,12 @@ struct MenuLayer : Event::AbstractLayer
 
 struct ColorSine : public App::Application
 {
-    ColorSine(App::Args args = App::Args()) : App::Application::Application("Sandbox", args)
+    ColorSine(App::Args args = App::Args()) : App::Application::Application("ColorSine", args)
     {
         window
             .set_size(1366, 768)
-            .set_aspect_constraints(16, 9);
+            .set_aspect_constraints(16, 9)
+            .set_vsync(true);
 
         push_layer(new GraphicsLayer());
         push_layer(new MenuLayer());

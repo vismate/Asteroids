@@ -35,7 +35,11 @@ namespace Event
         MouseButtonPressed,
         MouseButtonReleased,
         MouseMoved,
-        MouseScrolled
+        MouseScrolled,
+
+#if __has_include("UserEventTypes.def")
+#include "UserEventTypes.def"
+#endif
 
     };
 
@@ -47,7 +51,8 @@ namespace Event
         Keyboard = (1 << 2),
         Mouse = (1 << 3),
         MouseButton = (1 << 4),
-        Window = (1 << 5)
+        Window = (1 << 5),
+        UserDefined = (1 << 6)
     };
 
     inline auto operator|(Category a, Category b) -> size_t
