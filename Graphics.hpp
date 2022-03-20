@@ -31,7 +31,8 @@ namespace Graphics
                 [[maybe_unused]] const int glfw_success = glfwInit();
                 ASSERT(glfw_success, "Could not initialize GLFW");
 
-                glfwSetErrorCallback([](int code, const char *desc){Log::error(Log::format("GLFW error(%u): %s", code, desc));});
+                glfwSetErrorCallback([](int code, const char *desc)
+                                     { Log::error(Log::format("GLFW error(%u): %s", code, desc)); });
 
                 Log::info(Log::format("Compiled against GLFW %i.%i.%i", GLFW_VERSION_MAJOR, GLFW_VERSION_MINOR, GLFW_VERSION_REVISION));
                 Log::info(Log::format("Running against GLFW %s", glfwGetVersionString()));
@@ -52,7 +53,7 @@ namespace Graphics
         inline auto on_update() -> void
         {
             static double prev_time{0}, curr_time{0};
-                        
+
             curr_time = glfwGetTime();
             const double dt = curr_time - prev_time;
             prev_time = curr_time;
@@ -123,24 +124,29 @@ namespace Graphics
 
         inline auto set_fullscreen(bool val) -> Window &
         {
-            //In case one would call set_fullscreen(false) before set_fullscreen(true) first
+            // In case one would call set_fullscreen(false) before set_fullscreen(true) first
             static int x{100}, y{100}, width{640}, height(480);
 
-            if(val)
+            if (val)
             {
                 glfwGetWindowSize(window_handle, &width, &height);
                 glfwGetWindowPos(window_handle, &x, &y);
-                
-                const auto monitor =  glfwGetPrimaryMonitor();
+
+                const auto monitor = glfwGetPrimaryMonitor();
                 const auto mode = glfwGetVideoMode(monitor);
                 glfwSetWindowMonitor(window_handle, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
             }
-            else 
+            else
             {
                 glfwSetWindowMonitor(window_handle, nullptr, x, y, width, height, GLFW_DONT_CARE);
             }
 
             return *this;
+        }
+
+        inline auto get_native_handle() -> GLFWwindow *
+        {
+            return window_handle;
         }
 
         ~Window()
@@ -160,87 +166,76 @@ namespace Graphics
             glfwSetWindowUserPointer(window_handle, &event_callback);
 
             glfwSetWindowSizeCallback(window_handle, [](GLFWwindow *window, int width, int height) -> void
-            {
+                                      {
                 auto &callback = WIN_EVT_CALLBACK(window);
-                callback(Event::WindowResize(width, height)); 
-            });
+                callback(Event::WindowResize(width, height)); });
 
             glfwSetWindowCloseCallback(window_handle, [](GLFWwindow *window) -> void
-            {
+                                       {
                 auto &callback = WIN_EVT_CALLBACK(window);
-                callback(Event::WindowClose()); 
-            });
+                callback(Event::WindowClose()); });
 
             glfwSetKeyCallback(window_handle, [](GLFWwindow *window, int key, int, int action, int) -> void
-            {
+                               {
                 auto &callback = WIN_EVT_CALLBACK(window);
                 switch (action)
                 {
                 case GLFW_PRESS:
-                    callback(Event::KeyPressed(key, false));
+                    callback(Event::KeyPressed(static_cast<Input::Key>(key), false));
                     break;
                 case GLFW_RELEASE:
-                    callback(Event::KeyReleased(key));
+                    callback(Event::KeyReleased(static_cast<Input::Key>(key)));
                     break;
                 case GLFW_REPEAT:
-                    callback(Event::KeyPressed(key, true));
+                    callback(Event::KeyPressed(static_cast<Input::Key>(key), true));
                     break;                
-                } 
-            });
+                } });
 
             glfwSetMouseButtonCallback(window_handle, [](GLFWwindow *window, int button, int action, int) -> void
-            {
+                                       {
                 auto &callback = WIN_EVT_CALLBACK(window);
                 switch (action)
                 {
                 case GLFW_PRESS:
-                    callback(Event::MouseButtonPressed(button));
+                    callback(Event::MouseButtonPressed(static_cast<Input::Mouse>(button)));
                     break;
                 case GLFW_RELEASE:
-                    callback(Event::MouseButtonReleased(button));
+                    callback(Event::MouseButtonReleased(static_cast<Input::Mouse>(button)));
                     break;            
-                } 
-            });
+                } });
 
             glfwSetScrollCallback(window_handle, [](GLFWwindow *window, double x_offset, double y_offset) -> void
-            {
+                                  {
                 auto &callback = WIN_EVT_CALLBACK(window);
-                callback(Event::MouseScrolled(x_offset, y_offset));
-            });
+                callback(Event::MouseScrolled(x_offset, y_offset)); });
 
             glfwSetCursorPosCallback(window_handle, [](GLFWwindow *window, double x, double y) -> void
-            {
+                                     {
                 auto &callback = WIN_EVT_CALLBACK(window);
-                callback(Event::MouseMoved(x, y));
-            });
+                callback(Event::MouseMoved(x, y)); });
 
             glfwSetWindowFocusCallback(window_handle, [](GLFWwindow *window, int focused) -> void
-            {
-                auto &callback = WIN_EVT_CALLBACK(window);
-                
-                if(focused)
-                {
-                    callback(Event::WindowFocus()); 
-                }
-                else
-                {
-                    callback(Event::WindowLostFocus());
-                }
-               
-            });
+                                       {
+                                           auto &callback = WIN_EVT_CALLBACK(window);
+
+                                           if (focused)
+                                           {
+                                               callback(Event::WindowFocus());
+                                           }
+                                           else
+                                           {
+                                               callback(Event::WindowLostFocus());
+                                           } });
 
             glfwSetWindowPosCallback(window_handle, [](GLFWwindow *window, int x, int y) -> void
-            {
+                                     {
                 auto &callback = WIN_EVT_CALLBACK(window);
-                callback(Event::WindowMoved(x, y));
-            });
+                callback(Event::WindowMoved(x, y)); });
 
             glfwSetWindowRefreshCallback(window_handle, [](GLFWwindow *window) -> void
-            {
+                                         {
                 auto &callback = WIN_EVT_CALLBACK(window);
-                callback(Event::WindowRedraw());               
-            });
-
+                callback(Event::WindowRedraw()); });
         }
 
     private:

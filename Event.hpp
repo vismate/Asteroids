@@ -2,8 +2,10 @@
 #define EVENT_HPP
 
 #include "Error.hpp"
+#include "InputCodes.hpp"
 #include <vector>
 #include <unordered_set>
+#include <string>
 
 #define EVT_IMPL_BOILERPLATE(_type, categories, debug_name)                     \
     virtual inline auto type() const->Type override                             \
@@ -69,6 +71,13 @@ namespace Event
         virtual inline auto type() const -> Type = 0;
         virtual inline auto in_category(Category category) const -> bool = 0;
         virtual inline auto debug_string() const -> std::string { return "Undefined event"; };
+
+        template <typename T>
+        inline auto as() const -> const T &
+        {
+            static_assert(std::is_base_of_v<AbstractEvent, T>, "T must derive from AbstractEvent to use AbstractEvent::as ");
+            return *reinterpret_cast<const T *>(this);
+        }
     };
 
     class AbstractLayer
@@ -108,7 +117,21 @@ namespace Event
             }
         }
 
+        inline auto propegate_event(const AbstractEvent &event) -> bool
+        {
+            for (auto l : *this)
+            {
+                if (l->on_event(event))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         inline auto begin() -> std::vector<AbstractLayer *>::reverse_iterator { return layers.rbegin(); }
+
         inline auto end() -> std::vector<AbstractLayer *>::reverse_iterator { return layers.rend(); }
 
     private:
@@ -155,7 +178,7 @@ namespace Event
     public:
         WindowMoved(int x, int y)
             : x(x), y(y) {}
-        EVT_IMPL_BOILERPLATE(Type::WindowMoved, Category::Window, Log::format("WindowMoved: x:%u y:%u", x, y));
+        EVT_IMPL_BOILERPLATE(Type::WindowMoved, Category::Window, Log::format("WindowMoved: x:%d y:%d", x, y));
 
         const int x, y;
     };
@@ -172,42 +195,42 @@ namespace Event
     class KeyPressed : public AbstractEvent
     {
     public:
-        KeyPressed(int key, bool repeats)
+        KeyPressed(Input::Key key, bool repeats)
             : key(key), repeats(repeats) {}
-        EVT_IMPL_BOILERPLATE(Type::KeyPressed, Category::Keyboard | Category::Input, Log::format("KeyPressed: %u repeats=%u", key, repeats));
+        EVT_IMPL_BOILERPLATE(Type::KeyPressed, Category::Keyboard | Category::Input, Log::format("KeyPressed: %d repeats=%u", static_cast<int>(key), repeats));
 
-        const int key;
+        const Input::Key key;
         const bool repeats;
     };
 
     class KeyReleased : public AbstractEvent
     {
     public:
-        KeyReleased(int key)
+        KeyReleased(Input::Key key)
             : key(key) {}
-        EVT_IMPL_BOILERPLATE(Type::KeyReleased, Category::Keyboard | Category::Input, Log::format("KeyReleased: %u", key));
+        EVT_IMPL_BOILERPLATE(Type::KeyReleased, Category::Keyboard | Category::Input, Log::format("KeyReleased: %d", static_cast<int>(key)));
 
-        const int key;
+        const Input::Key key;
     };
 
     class MouseButtonPressed : public AbstractEvent
     {
     public:
-        MouseButtonPressed(int button)
+        MouseButtonPressed(Input::Mouse button)
             : button(button) {}
-        EVT_IMPL_BOILERPLATE(Type::MouseButtonPressed, Category::Mouse | Category::Input, Log::format("MouseButtonPressed: %u", button));
+        EVT_IMPL_BOILERPLATE(Type::MouseButtonPressed, Category::Mouse | Category::Input, Log::format("MouseButtonPressed: %d", static_cast<int>(button)));
 
-        const int button;
+        const Input::Mouse button;
     };
 
     class MouseButtonReleased : public AbstractEvent
     {
     public:
-        MouseButtonReleased(int button)
+        MouseButtonReleased(Input::Mouse button)
             : button(button) {}
-        EVT_IMPL_BOILERPLATE(Type::MouseButtonReleased, Category::Mouse | Category::Input, Log::format("MouseButtonReleased: %u", button));
+        EVT_IMPL_BOILERPLATE(Type::MouseButtonReleased, Category::Mouse | Category::Input, Log::format("MouseButtonReleased: %d", static_cast<int>(button)));
 
-        const int button;
+        const Input::Mouse button;
     };
 
     class MouseScrolled : public AbstractEvent
@@ -233,14 +256,14 @@ namespace Event
     class EventLoggerLayer : public AbstractLayer
     {
     public:
-
         Log::Logger logger{"EVENT", Log::Color::Cyan, 5};
 
         virtual inline auto on_event(const AbstractEvent &event) -> bool override
         {
-            auto itr = std::find_if(cat_blacklist.begin(), cat_blacklist.end(), [&event](Category cat){return event.in_category(cat);});
+            auto itr = std::find_if(cat_blacklist.begin(), cat_blacklist.end(), [&event](Category cat)
+                                    { return event.in_category(cat); });
 
-            if( not type_blacklist.contains(event.type()) && itr == cat_blacklist.end())
+            if (not type_blacklist.contains(event.type()) && itr == cat_blacklist.end())
                 logger(event.debug_string());
             return false;
         }
@@ -262,12 +285,6 @@ namespace Event
         std::unordered_set<Type> type_blacklist;
     };
 
-    template <typename T>
-    inline auto event_cast(const AbstractEvent &event) -> const T &
-    {
-        static_assert(std::is_base_of_v<AbstractEvent, T>, "T must derive from AbstractEvent to use event_cast ");
-        return *reinterpret_cast<const T *>(&event);
-    }
 }
 
 #endif
