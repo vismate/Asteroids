@@ -242,6 +242,8 @@ namespace Graphics
                                          {
                 auto &callback = WIN_EVT_CALLBACK(window);
                 callback(Event::WindowRedraw()); });
+
+            glfwSetFramebufferSizeCallback(window_handle, [](GLFWwindow *, int width, int height) -> void {glViewport(0, 0, width, height);});
         }
 
     private:

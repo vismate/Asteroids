@@ -38,20 +38,6 @@ namespace App
 
         inline auto on_event(const Event::AbstractEvent &event) -> bool
         {
-
-            switch (event.type())
-            {
-            case Event::Type::WindowClose:
-                close();
-                break;
-            case Event::Type::WindowResize:
-            {
-                const auto [w, h] = window.get_size();
-                glViewport(0, 0, w, h);
-            }
-            break;
-            }
-
             if (event.type() == Event::Type::WindowClose)
             {
                 close();
