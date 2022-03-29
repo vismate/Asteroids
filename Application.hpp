@@ -41,7 +41,7 @@ namespace App
 
             if (event.type() == Event::Type::WindowClose)
             {
-                running = false;
+                close();
             }
 
             layer_stack.propegate_event(event);

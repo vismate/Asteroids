@@ -9,8 +9,14 @@
 #include <GL/glew.h>
 
 #include <functional>
+#include <unordered_map>
+#include <fstream>
+#include <initializer_list>
+#include <memory>
 
 #define WIN_EVT_CALLBACK(winptr) *static_cast<EventCallbackFn *>(glfwGetWindowUserPointer(winptr))
+
+// TODO: GL error handling
 
 namespace Graphics
 {
@@ -249,9 +255,356 @@ namespace Graphics
     bool Window::INITIALIZED_DEPS = false;
     size_t Window::WINDOWS_ALIVE = 0;
 
-    class Renderer
+    enum class GLtype
     {
+        None = -1,
+        Float = GL_FLOAT,
+        Float2 = GL_FLOAT_VEC2,
+        Float3 = GL_FLOAT_VEC3,
+        Float4 = GL_FLOAT_VEC4,
+        UnsignedInt = GL_UNSIGNED_INT,
+        Byte = GL_UNSIGNED_BYTE,
     };
+
+    class IndexBuffer
+    {
+    public:
+        IndexBuffer(const unsigned int *data, size_t count)
+        {
+            auto p = new unsigned int;
+            glGenBuffers(1, p);
+            id.reset(p);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *id);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * count, data, GL_STATIC_DRAW);
+        }
+
+        inline auto operator=(IndexBuffer &&other) -> IndexBuffer &
+        {
+            id = std::move(other.id);
+            return *this;
+        }
+
+        ~IndexBuffer()
+        {
+            if (id)
+            {
+                glDeleteBuffers(1, id.get());
+                id.release();
+            }
+        }
+
+        inline auto bind() const -> void
+        {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *id);
+        }
+
+        inline auto unbind() const -> void
+        {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        }
+
+    private:
+        std::unique_ptr<unsigned int> id;
+    };
+
+    class VertexBuffer
+    {
+    public:
+        struct LayoutElement
+        {
+            GLtype type;
+            size_t count;
+            bool normalized;
+
+            inline auto size_of_type() const -> size_t
+            {
+                switch (type)
+                {
+                case GLtype::Float:
+                    return sizeof(float);
+                case GLtype::Float2:
+                    return sizeof(float) * 2;
+                case GLtype::Float3:
+                    return sizeof(float) * 3;
+                case GLtype::Float4:
+                    return sizeof(float) * 4;
+                case GLtype::UnsignedInt:
+                    return sizeof(unsigned int);
+                case GLtype::Byte:
+                    return sizeof(unsigned char);
+                default:
+                    ASSERT(false, "None type");
+                }
+            }
+        };
+
+        struct Layout
+        {
+            size_t stride;
+            std::vector<LayoutElement> elements;
+        };
+
+    public:
+        VertexBuffer(const void *data, size_t size)
+        {
+            auto p = new unsigned int;
+            glGenBuffers(1, p);
+            id.reset(p);
+            glBindBuffer(GL_ARRAY_BUFFER, *id);
+            glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+        }
+
+        inline auto operator=(VertexBuffer &&other) -> VertexBuffer &
+        {
+            id = std::move(other.id);
+            layout = std::move(other.layout);
+            return *this;
+        }
+
+        ~VertexBuffer()
+        {
+            if (id)
+            {
+                glDeleteBuffers(1, id.get());
+                id.release();
+            }
+        }
+
+        inline auto bind() const -> void
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, *id);
+        }
+
+        inline auto unbind() const -> void
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+        }
+
+        inline auto set_layout(std::initializer_list<LayoutElement> elements) -> void
+        {
+            layout.elements.clear();
+            layout.stride = 0;
+            for (const auto &e : elements)
+            {
+                layout.elements.push_back(e);
+                layout.stride += e.size_of_type() * e.count;
+            }
+        }
+
+    private:
+        std::unique_ptr<unsigned int> id;
+        Layout layout;
+
+        friend class VertexArray;
+    };
+
+    class VertexArray
+    {
+    public:
+        VertexArray()
+        {
+            auto p = new unsigned int;
+            glCreateVertexArrays(1, p);
+            id.reset(p);
+        }
+
+        ~VertexArray()
+        {
+            if (id)
+            {
+                glDeleteVertexArrays(1, id.get());
+                id.release();
+            }
+        }
+
+        inline auto operator=(VertexArray &&other) -> VertexArray &
+        {
+            id = std::move(other.id);
+            ib = std::move(other.ib);
+            vbs = std::move(other.vbs);
+            return *this;
+        }
+
+        inline auto bind() const -> void
+        {
+            glBindVertexArray(*id);
+        }
+
+        inline auto unbind() const -> void
+        {
+            glBindVertexArray(0);
+        }
+
+        inline auto add_vertex_buffer(const std::shared_ptr<VertexBuffer> &vb) -> void
+        {
+            bind();
+            vb->bind();
+
+            ASSERT(vb->layout.elements.size(), "VertexBuffer has no layout set");
+
+            size_t offset{0};
+            for (size_t i = 0; i < vb->layout.elements.size(); i++)
+            {
+                const auto &e = vb->layout.elements[i];
+                glEnableVertexAttribArray(i);
+                glVertexAttribPointer(i, e.count, static_cast<unsigned int>(e.type),
+                                      e.normalized, vb->layout.stride, reinterpret_cast<const void *>(offset));
+                offset += e.size_of_type() * e.count;
+            }
+        }
+
+        inline auto set_index_buffer(const std::shared_ptr<IndexBuffer> &ib) -> void
+        {
+            bind();
+            ib->bind();
+            this->ib = ib;
+        }
+
+        inline auto get_vertex_buffers() const -> const std::vector<std::shared_ptr<VertexBuffer>> &
+        {
+            return vbs;
+        }
+
+        inline auto get_index_buffer() const -> const std::shared_ptr<IndexBuffer> &
+        {
+            return ib;
+        }
+
+    private:
+        std::unique_ptr<unsigned int> id;
+        std::shared_ptr<IndexBuffer> ib;
+        std::vector<std::shared_ptr<VertexBuffer>> vbs;
+    };
+
+    /*
+        template <>
+        inline auto VertexArray::Layout::push<float>(size_t count) -> void
+        {
+            elements.emplace_back(GL_FLOAT, count, false);
+            stride += sizeof(GLfloat) * count;
+        }
+
+        template <>
+        inline auto VertexArray::Layout::push<unsigned int>(size_t count) -> void
+        {
+            elements.emplace_back(GL_UNSIGNED_INT, count, false);
+            stride += sizeof(GLuint) * count;
+        }
+
+        template <>
+        inline auto VertexArray::Layout::push<unsigned char>(size_t count) -> void
+        {
+            elements.emplace_back(GL_UNSIGNED_BYTE, count, true);
+            stride += sizeof(GLbyte) * count;
+        }
+    */
+    class Shader
+    {
+    public:
+        Shader(const char *vertex_path, const char *fragment_path)
+        {
+            // Read sources
+            std::ifstream vertex_f(vertex_path), fragment_f(fragment_path);
+
+            ASSERT(vertex_f.is_open() && fragment_f.is_open(), "Source file failed to open");
+            std::stringstream vertex_stream, fragment_stream;
+            vertex_stream << vertex_f.rdbuf();
+            fragment_stream << fragment_f.rdbuf();
+
+            vertex_source = vertex_stream.str();
+            fragment_source = fragment_stream.str();
+
+            const char *vsptr = vertex_source.c_str();
+            const char *fsptr = fragment_source.c_str();
+
+            // Compile sources
+            unsigned int vertex, fragment;
+
+            int success;
+            char info[512];
+
+            vertex = glCreateShader(GL_VERTEX_SHADER);
+            glShaderSource(vertex, 1, &vsptr, nullptr);
+            glCompileShader(vertex);
+
+            glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
+            glGetShaderInfoLog(vertex, 512, NULL, info);
+            ASSERT(success, info);
+
+            fragment = glCreateShader(GL_FRAGMENT_SHADER);
+            glShaderSource(fragment, 1, &fsptr, nullptr);
+            glCompileShader(fragment);
+
+            glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
+            glGetShaderInfoLog(fragment, 512, NULL, info);
+            ASSERT(success, info);
+
+            // Create shader program
+            id = glCreateProgram();
+            glAttachShader(id, vertex);
+            glAttachShader(id, fragment);
+            glLinkProgram(id);
+
+            glGetProgramiv(id, GL_LINK_STATUS, &success);
+            glGetProgramInfoLog(id, 512, NULL, info);
+
+            ASSERT(success, info);
+
+            glDeleteShader(vertex);
+            glDeleteShader(fragment);
+
+            vertex_f.close();
+            fragment_f.close();
+        }
+
+        template <typename T>
+        inline auto set_uniform(const char *name, T value) -> void
+        {
+            ASSERT(false, "Type specialization not implemented");
+        }
+
+        inline auto bind() const -> void
+        {
+            glUseProgram(id);
+        }
+
+        inline auto unbind() const -> void
+        {
+            glUseProgram(0);
+        }
+
+    private:
+        inline auto uniform_location(const char *name) -> int
+        {
+            const auto itr = uniform_cache.find(name);
+
+            if (itr != uniform_cache.end())
+            {
+                return itr->second;
+            }
+            else
+            {
+                auto location = glGetUniformLocation(id, name);
+
+                ASSERT(location != -1, Log::format("Uniform with name %s does not exist.", name));
+
+                uniform_cache.emplace(name, location);
+
+                return location;
+            }
+        }
+
+        unsigned int id;
+        std::string vertex_source, fragment_source;
+        std::unordered_map<const char *, int> uniform_cache;
+    };
+
+    // Specializations of Shader::set_uniform;
+    template <>
+    inline auto Shader::set_uniform<float>(const char *name, float value) -> void
+    {
+        glUniform1f(uniform_location(name), value);
+    }
 
 }
 

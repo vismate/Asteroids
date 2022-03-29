@@ -11,6 +11,32 @@ struct GraphicsLayer : Event::AbstractLayer
         using namespace Input;
 
         static double theta{0}, speed{1};
+        static float vertices[] = {
+            -0.5f, -0.5f, 0.0f,
+            0.5f, -0.5f, 0.0f,
+            0.0f, 0.5f, 0.0f};
+
+        static unsigned int indices[] = {
+            0, 1, 3, // first triangle
+        };
+
+        static auto ib = std::make_shared<Graphics::IndexBuffer>(indices, 3);
+        static auto vb = std::make_shared<Graphics::VertexBuffer>(vertices, sizeof(float) * 9);
+
+        vb->set_layout({{Graphics::GLtype::Float, 3, false}});
+
+        static Graphics::VertexArray va;
+        va.add_vertex_buffer(vb);
+        va.set_index_buffer(ib);
+
+        vb->bind();
+        ib->bind();
+        
+
+        Graphics::Shader shader("vertex", "fragment");
+        shader.bind();
+
+        va.bind();
 
         if (event.type() == Type::AppTick)
         {
@@ -25,10 +51,12 @@ struct GraphicsLayer : Event::AbstractLayer
 
             glClearColor(std::sin(theta), std::sin(theta + 6.28 / 3.0), std::sin(theta + 12.56 / 3.0), 1);
             glClear(GL_COLOR_BUFFER_BIT);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
         }
         else if (event.type() == Type::WindowRedraw)
         {
             glClear(GL_COLOR_BUFFER_BIT);
+            glDrawArrays(GL_TRIANGLES, 0, 3);
         }
 
         return false;
@@ -66,6 +94,8 @@ struct MenuLayer : Event::AbstractLayer
             case Input::Key::F11:
                 app.get_window().set_fullscreen(fullscreen = !fullscreen);
                 return true;
+            case Input::Key::ESCAPE:
+                app.close();
             default:
                 break;
             }
