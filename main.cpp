@@ -40,40 +40,46 @@ struct MenuLayer : Event::AbstractLayer
     Event::EventLoggerLayer &logger_layer;
     App::Application &app;
 
+    const float vertices[6] = {
+        -0.25f, -0.50f,
+        0.25f, 0.0f,
+        -0.25f, 0.50f};
+
+    const unsigned int indices[3] = {
+        0, 1, 2 // first triangle
+    };
+
+    std::shared_ptr<Graphics::IndexBuffer> ib;
+    std::shared_ptr<Graphics::VertexBuffer> vb;
+    Graphics::VertexArray va;
+    Graphics::Shader shader;
+
+
     MenuLayer()
-        : logger_layer(*(new Event::EventLoggerLayer())), app(App::Application::get_instance())
+        : logger_layer(*(new Event::EventLoggerLayer())), app(App::Application::get_instance()), shader("vertex","fragment")
     {
         logger_layer
             .blacklist_type(Event::Type::AppTick)
             .logger.set_datetime_format("[%H:%M:%S]");
     }
 
+    inline virtual auto on_attach() -> void override
+    {
+        ib = std::make_shared<Graphics::IndexBuffer>(indices, 3);
+        vb = std::make_shared<Graphics::VertexBuffer>(vertices, sizeof(float) * 6);
+        vb->set_layout({{Graphics::GLtype::Float, 2, false}});
+        va.add_vertex_buffer(vb);
+        va.set_index_buffer(ib);
+    }
+
     inline virtual auto on_event(const Event::AbstractEvent &event) -> bool override
     {
         using namespace Event;
         static bool active{false}, logging{false}, fullscreen{false};
-
-        static float vertices[] = {
-            -0.25f, -0.50f, 0.0f,
-            0.25f, 0.0f, 0.0f,
-            -0.25f, 0.50f, 0.0f};
-
-        static unsigned int indices[] = {
-            0, 1, 2 // first triangle
-        };
-
-        static auto ib = std::make_shared<Graphics::IndexBuffer>(indices, 3);
-        static auto vb = std::make_shared<Graphics::VertexBuffer>(vertices, sizeof(float) * 9);
-
-        vb->set_layout({{Graphics::GLtype::Float, 3, false}});
-
-        static Graphics::VertexArray va;
-        va.add_vertex_buffer(vb);
-        va.set_index_buffer(ib);
-
-        Graphics::Shader shader("vertex", "fragment");
+        
+        vb->bind();
+        ib->bind();
         shader.bind();
-
         va.bind();
 
         if (event.type() == Type::KeyPressed)

@@ -243,7 +243,8 @@ namespace Graphics
                 auto &callback = WIN_EVT_CALLBACK(window);
                 callback(Event::WindowRedraw()); });
 
-            glfwSetFramebufferSizeCallback(window_handle, [](GLFWwindow *, int width, int height) -> void {glViewport(0, 0, width, height);});
+            glfwSetFramebufferSizeCallback(window_handle, [](GLFWwindow *, int width, int height) -> void
+                                           { glViewport(0, 0, width, height); });
         }
 
     private:
@@ -261,9 +262,6 @@ namespace Graphics
     {
         None = -1,
         Float = GL_FLOAT,
-        Float2 = GL_FLOAT_VEC2,
-        Float3 = GL_FLOAT_VEC3,
-        Float4 = GL_FLOAT_VEC4,
         UnsignedInt = GL_UNSIGNED_INT,
         Byte = GL_UNSIGNED_BYTE,
     };
@@ -324,12 +322,6 @@ namespace Graphics
                 {
                 case GLtype::Float:
                     return sizeof(float);
-                case GLtype::Float2:
-                    return sizeof(float) * 2;
-                case GLtype::Float3:
-                    return sizeof(float) * 3;
-                case GLtype::Float4:
-                    return sizeof(float) * 4;
                 case GLtype::UnsignedInt:
                     return sizeof(unsigned int);
                 case GLtype::Byte:
@@ -542,13 +534,13 @@ namespace Graphics
             ASSERT(success, info);
 
             // Create shader program
-            id = glCreateProgram();
-            glAttachShader(id, vertex);
-            glAttachShader(id, fragment);
-            glLinkProgram(id);
+            id = std::make_unique<unsigned int>(glCreateProgram());
+            glAttachShader(*id, vertex);
+            glAttachShader(*id, fragment);
+            glLinkProgram(*id);
 
-            glGetProgramiv(id, GL_LINK_STATUS, &success);
-            glGetProgramInfoLog(id, 512, NULL, info);
+            glGetProgramiv(*id, GL_LINK_STATUS, &success);
+            glGetProgramInfoLog(*id, 512, NULL, info);
 
             ASSERT(success, info);
 
@@ -559,6 +551,24 @@ namespace Graphics
             fragment_f.close();
         }
 
+        ~Shader()
+        {
+            if (id)
+            {
+                glDeleteProgram(*id);
+                id.release();
+            }
+        }
+
+        inline auto operator=(Shader &&other) -> Shader &
+        {
+            id = std::move(other.id);
+            vertex_source = std::move(other.vertex_source);
+            fragment_source = std::move(other.fragment_source);
+            uniform_cache = std::move(other.uniform_cache);
+            return *this;
+        }
+
         template <typename T>
         inline auto set_uniform(const char *name, T value) -> void
         {
@@ -567,7 +577,7 @@ namespace Graphics
 
         inline auto bind() const -> void
         {
-            glUseProgram(id);
+            glUseProgram(*id);
         }
 
         inline auto unbind() const -> void
@@ -586,7 +596,7 @@ namespace Graphics
             }
             else
             {
-                auto location = glGetUniformLocation(id, name);
+                auto location = glGetUniformLocation(*id, name);
 
                 ASSERT(location != -1, Log::format("Uniform with name %s does not exist.", name));
 
@@ -596,7 +606,7 @@ namespace Graphics
             }
         }
 
-        unsigned int id;
+        std::unique_ptr<unsigned int> id;
         std::string vertex_source, fragment_source;
         std::unordered_map<const char *, int> uniform_cache;
     };
