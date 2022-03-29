@@ -12,9 +12,9 @@ struct GraphicsLayer : Event::AbstractLayer
 
         static double theta{0}, speed{1};
         static float vertices[] = {
-            -0.5f, -0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            0.0f, 0.5f, 0.0f};
+            -1.f, -1.f, 0.0f,
+            1.f, -1.f, 0.0f,
+            0.0f, 1.f, 0.0f};
 
         static unsigned int indices[] = {
             0, 1, 3, // first triangle
@@ -31,7 +31,6 @@ struct GraphicsLayer : Event::AbstractLayer
 
         vb->bind();
         ib->bind();
-        
 
         Graphics::Shader shader("vertex", "fragment");
         shader.bind();
