@@ -11,6 +11,8 @@
 /*
 TODO: Review _impl::SceneView::Iterator
 TODO: Try and eliminate all "friend" declarations
+TODO: Do away with AbstractComponentPool
+TODO: Optimize, optimize, optimize (eg.: has_all, get_all)
 TODO: Write documentation
 TODO: Paging
 TODO: Research groups

@@ -1,6 +1,8 @@
 #include "Application.hpp"
 #include "Input.hpp"
+#include "ECS.hpp"
 
+/*
 #include <cmath>
 
 struct GraphicsLayer : Event::AbstractLayer
@@ -14,7 +16,9 @@ struct GraphicsLayer : Event::AbstractLayer
 
         if (event.type() == Type::AppTick)
         {
-            auto dt = event.as<AppTick>().dt;
+            const auto dt = event.as<AppTick>().dt;
+
+            theta += dt * speed / 10;
 
             if (is_pressed(Key::LEFT))
                 theta -= dt * speed;
@@ -51,12 +55,11 @@ struct MenuLayer : Event::AbstractLayer
 
     std::shared_ptr<Graphics::IndexBuffer> ib;
     std::shared_ptr<Graphics::VertexBuffer> vb;
-    Graphics::VertexArray va;
-    Graphics::Shader shader;
-
+    std::shared_ptr<Graphics::VertexArray> va;
+    std::shared_ptr<Graphics::Shader> shader;
 
     MenuLayer()
-        : logger_layer(*(new Event::EventLoggerLayer())), app(App::Application::get_instance()), shader("vertex","fragment")
+        : logger_layer(*(new Event::EventLoggerLayer())), app(App::Application::get_instance())
     {
         logger_layer
             .blacklist_type(Event::Type::AppTick)
@@ -65,22 +68,23 @@ struct MenuLayer : Event::AbstractLayer
 
     inline virtual auto on_attach() -> void override
     {
-        ib = std::make_shared<Graphics::IndexBuffer>(indices, 3);
-        vb = std::make_shared<Graphics::VertexBuffer>(vertices, sizeof(float) * 6);
-        vb->set_layout({{Graphics::GLtype::Float, 2, false}});
-        va.add_vertex_buffer(vb);
-        va.set_index_buffer(ib);
+        using namespace Graphics;
+        using std::make_shared;
+
+        ib = make_shared<IndexBuffer>(indices, 3);
+        vb = make_shared<VertexBuffer>(vertices, sizeof(float) * 6);
+        va = make_shared<VertexArray>();
+        shader = make_shared<Shader>("vertex", "fragment");
+
+        vb->set_layout({{GLtype::Float, 2, false}});
+        va->add_vertex_buffer(vb);
+        va->set_index_buffer(ib);
     }
 
     inline virtual auto on_event(const Event::AbstractEvent &event) -> bool override
     {
         using namespace Event;
         static bool active{false}, logging{false}, fullscreen{false};
-        
-        vb->bind();
-        ib->bind();
-        shader.bind();
-        va.bind();
 
         if (event.type() == Type::KeyPressed)
         {
@@ -104,6 +108,10 @@ struct MenuLayer : Event::AbstractLayer
 
         if (active)
         {
+            vb->bind();
+            ib->bind();
+            shader->bind();
+            va->bind();
             glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
         }
 
@@ -128,5 +136,123 @@ struct ColorSine : public App::Application
 int main()
 {
     ColorSine app;
+    app.run();
+}
+*/
+
+class AsteroidsDemo;
+
+class MenuLayer : public Event::AbstractLayer
+{
+
+public:
+    MenuLayer()
+        : active(false),
+          app(App::Application::get_instance_as<AsteroidsDemo>())
+    {
+    }
+
+    inline virtual auto on_event(const Event::AbstractEvent &event) -> bool override
+    {
+        using namespace Event;
+
+        if (event.type() == Type::KeyPressed && event.as<KeyPressed>().key == Input::Key::ESCAPE)
+        {
+            Log::info((active = not active) ? "Paused game" : "Unpaused game");
+        }
+
+        return active && not(event.type() == Type::WindowRedraw);
+    }
+
+private:
+    bool active;
+    AsteroidsDemo &app;
+};
+
+class GameLayer : public Event::AbstractLayer
+{
+public:
+    GameLayer() : app(App::Application::get_instance_as<AsteroidsDemo>())
+    {
+    }
+
+    inline virtual auto on_event(const Event::AbstractEvent &event) -> bool override
+    {
+        using namespace Event;
+        switch (event.type())
+        {
+        case Type::AppTick:
+        {
+            glClearColor(1.0,0,0,1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            draw();
+        }
+        break;
+
+        case Type::WindowRedraw:
+        {
+
+            draw();
+        }
+        break;
+        default:
+            return false;
+        }
+
+        return false;
+    }
+
+private:
+    struct Polygon
+    {
+        std::shared_ptr<Graphics::VertexBuffer> vb;
+        Polygon(const std::vector<std::pair<float, float>> &data)
+            : vb(std::make_shared<Graphics::VertexBuffer>(data.data(), data.size() * sizeof(std::pair<float, float>)))
+        {
+            vb->set_layout({{Graphics::GLtype::Float, 2, false}});
+        }
+    };
+
+    inline auto draw() -> void
+    {
+        static Polygon p({{-0.5,-0.5},{0,0.5}});
+        static Graphics::Shader shader("vertex", "fragment");
+        static Graphics::VertexArray va;
+        static bool x{false};
+        if(not x) {va.add_vertex_buffer(p.vb); x = true; }
+
+        p.vb->bind();
+        va.bind();
+        shader.bind();
+        glDrawArrays(GL_LINES, 0, 2);
+    }
+
+    AsteroidsDemo &app;
+};
+
+class AsteroidsDemo : public App::Application
+{
+public:
+    AsteroidsDemo() : App::Application::Application("Asteroids Demo")
+    {
+        window
+            .set_size(1366, 768)
+            .set_aspect_constraints(16, 9)
+            .set_vsync(true);
+
+        push_layer(new GameLayer());
+        push_layer(new MenuLayer());
+
+#ifdef LOG_EVENTS
+        auto logger_layer = new Event::EventLoggerLayer();
+        logger_layer->blacklist_type(Event::Type::AppTick);
+        push_layer(logger_layer);
+#endif
+    }
+};
+
+int main()
+{
+    AsteroidsDemo app;
     app.run();
 }

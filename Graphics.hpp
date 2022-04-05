@@ -271,31 +271,19 @@ namespace Graphics
     public:
         IndexBuffer(const unsigned int *data, size_t count)
         {
-            auto p = new unsigned int;
-            glGenBuffers(1, p);
-            id.reset(p);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *id);
+            glGenBuffers(1, &id);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * count, data, GL_STATIC_DRAW);
-        }
-
-        inline auto operator=(IndexBuffer &&other) -> IndexBuffer &
-        {
-            id = std::move(other.id);
-            return *this;
         }
 
         ~IndexBuffer()
         {
-            if (id)
-            {
-                glDeleteBuffers(1, id.get());
-                id.release();
-            }
+            glDeleteBuffers(1, &id);
         }
 
         inline auto bind() const -> void
         {
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *id);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
         }
 
         inline auto unbind() const -> void
@@ -304,7 +292,7 @@ namespace Graphics
         }
 
     private:
-        std::unique_ptr<unsigned int> id;
+        unsigned int id;
     };
 
     class VertexBuffer
@@ -341,32 +329,19 @@ namespace Graphics
     public:
         VertexBuffer(const void *data, size_t size)
         {
-            auto p = new unsigned int;
-            glGenBuffers(1, p);
-            id.reset(p);
-            glBindBuffer(GL_ARRAY_BUFFER, *id);
+            glGenBuffers(1, &id);
+            glBindBuffer(GL_ARRAY_BUFFER, id);
             glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
-        }
-
-        inline auto operator=(VertexBuffer &&other) -> VertexBuffer &
-        {
-            id = std::move(other.id);
-            layout = std::move(other.layout);
-            return *this;
         }
 
         ~VertexBuffer()
         {
-            if (id)
-            {
-                glDeleteBuffers(1, id.get());
-                id.release();
-            }
+            glDeleteBuffers(1, &id);
         }
 
         inline auto bind() const -> void
         {
-            glBindBuffer(GL_ARRAY_BUFFER, *id);
+            glBindBuffer(GL_ARRAY_BUFFER, id);
         }
 
         inline auto unbind() const -> void
@@ -386,7 +361,7 @@ namespace Graphics
         }
 
     private:
-        std::unique_ptr<unsigned int> id;
+        unsigned int id;
         Layout layout;
 
         friend class VertexArray;
@@ -397,31 +372,17 @@ namespace Graphics
     public:
         VertexArray()
         {
-            auto p = new unsigned int;
-            glCreateVertexArrays(1, p);
-            id.reset(p);
+            glCreateVertexArrays(1, &id);
         }
 
         ~VertexArray()
         {
-            if (id)
-            {
-                glDeleteVertexArrays(1, id.get());
-                id.release();
-            }
-        }
-
-        inline auto operator=(VertexArray &&other) -> VertexArray &
-        {
-            id = std::move(other.id);
-            ib = std::move(other.ib);
-            vbs = std::move(other.vbs);
-            return *this;
+            glDeleteVertexArrays(1, &id);
         }
 
         inline auto bind() const -> void
         {
-            glBindVertexArray(*id);
+            glBindVertexArray(id);
         }
 
         inline auto unbind() const -> void
@@ -465,33 +426,11 @@ namespace Graphics
         }
 
     private:
-        std::unique_ptr<unsigned int> id;
+        unsigned int id;
         std::shared_ptr<IndexBuffer> ib;
         std::vector<std::shared_ptr<VertexBuffer>> vbs;
     };
 
-    /*
-        template <>
-        inline auto VertexArray::Layout::push<float>(size_t count) -> void
-        {
-            elements.emplace_back(GL_FLOAT, count, false);
-            stride += sizeof(GLfloat) * count;
-        }
-
-        template <>
-        inline auto VertexArray::Layout::push<unsigned int>(size_t count) -> void
-        {
-            elements.emplace_back(GL_UNSIGNED_INT, count, false);
-            stride += sizeof(GLuint) * count;
-        }
-
-        template <>
-        inline auto VertexArray::Layout::push<unsigned char>(size_t count) -> void
-        {
-            elements.emplace_back(GL_UNSIGNED_BYTE, count, true);
-            stride += sizeof(GLbyte) * count;
-        }
-    */
     class Shader
     {
     public:
@@ -534,13 +473,13 @@ namespace Graphics
             ASSERT(success, info);
 
             // Create shader program
-            id = std::make_unique<unsigned int>(glCreateProgram());
-            glAttachShader(*id, vertex);
-            glAttachShader(*id, fragment);
-            glLinkProgram(*id);
+            id = glCreateProgram();
+            glAttachShader(id, vertex);
+            glAttachShader(id, fragment);
+            glLinkProgram(id);
 
-            glGetProgramiv(*id, GL_LINK_STATUS, &success);
-            glGetProgramInfoLog(*id, 512, NULL, info);
+            glGetProgramiv(id, GL_LINK_STATUS, &success);
+            glGetProgramInfoLog(id, 512, NULL, info);
 
             ASSERT(success, info);
 
@@ -553,20 +492,7 @@ namespace Graphics
 
         ~Shader()
         {
-            if (id)
-            {
-                glDeleteProgram(*id);
-                id.release();
-            }
-        }
-
-        inline auto operator=(Shader &&other) -> Shader &
-        {
-            id = std::move(other.id);
-            vertex_source = std::move(other.vertex_source);
-            fragment_source = std::move(other.fragment_source);
-            uniform_cache = std::move(other.uniform_cache);
-            return *this;
+            glDeleteProgram(id);
         }
 
         template <typename T>
@@ -577,7 +503,7 @@ namespace Graphics
 
         inline auto bind() const -> void
         {
-            glUseProgram(*id);
+            glUseProgram(id);
         }
 
         inline auto unbind() const -> void
@@ -596,7 +522,7 @@ namespace Graphics
             }
             else
             {
-                auto location = glGetUniformLocation(*id, name);
+                auto location = glGetUniformLocation(id, name);
 
                 ASSERT(location != -1, Log::format("Uniform with name %s does not exist.", name));
 
@@ -606,7 +532,7 @@ namespace Graphics
             }
         }
 
-        std::unique_ptr<unsigned int> id;
+        unsigned int id;
         std::string vertex_source, fragment_source;
         std::unordered_map<const char *, int> uniform_cache;
     };
