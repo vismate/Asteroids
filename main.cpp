@@ -148,7 +148,7 @@ class MenuLayer : public Event::AbstractLayer
 public:
     MenuLayer()
         : active(false),
-          app(App::Application::get_instance_as<AsteroidsDemo>())
+          app(App::Application::get_instance())
     {
     }
 
@@ -156,9 +156,19 @@ public:
     {
         using namespace Event;
 
-        if (event.type() == Type::KeyPressed && event.as<KeyPressed>().key == Input::Key::ESCAPE)
+        if (event.type() == Type::KeyPressed)
         {
-            Log::info((active = not active) ? "Paused game" : "Unpaused game");
+            switch (event.as<KeyPressed>().key)
+            {
+            case Input::Key::ESCAPE:
+                Log::info((active = not active) ? "Paused game" : "Unpaused game");
+                break;
+            case Input::Key::Q:
+                app.on_event(WindowClose());
+                break;
+            default:
+                break;
+            }
         }
 
         return active && not(event.type() == Type::WindowRedraw);
@@ -166,13 +176,13 @@ public:
 
 private:
     bool active;
-    AsteroidsDemo &app;
+    App::Application &app;
 };
 
 class GameLayer : public Event::AbstractLayer
 {
 public:
-    GameLayer() : app(App::Application::get_instance_as<AsteroidsDemo>())
+    GameLayer() : app(App::Application::get_instance())
     {
     }
 
@@ -183,7 +193,7 @@ public:
         {
         case Type::AppTick:
         {
-            glClearColor(1.0,0,0,1);
+            glClearColor(1.0, 0, 0, 1);
             glClear(GL_COLOR_BUFFER_BIT);
             draw();
         }
@@ -215,19 +225,10 @@ private:
 
     inline auto draw() -> void
     {
-        static Polygon p({{-0.5,-0.5},{0,0.5}});
-        static Graphics::Shader shader("vertex", "fragment");
-        static Graphics::VertexArray va;
-        static bool x{false};
-        if(not x) {va.add_vertex_buffer(p.vb); x = true; }
-
-        p.vb->bind();
-        va.bind();
-        shader.bind();
-        glDrawArrays(GL_LINES, 0, 2);
+        
     }
 
-    AsteroidsDemo &app;
+    App::Application &app;
 };
 
 class AsteroidsDemo : public App::Application
