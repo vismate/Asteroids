@@ -155,15 +155,16 @@ public:
     inline virtual auto on_event(const Event::AbstractEvent &event) -> bool override
     {
         using namespace Event;
+        using namespace Input;
 
-        if (event.type() == Type::KeyPressed)
+        if (event.type() == Event::Type::KeyPressed)
         {
             switch (event.as<KeyPressed>().key)
             {
-            case Input::Key::ESCAPE:
+            case Key::ESCAPE:
                 Log::info((active = not active) ? "Paused game" : "Unpaused game");
                 break;
-            case Input::Key::Q:
+            case Key::Q:
                 app.on_event(WindowClose());
                 break;
             default:
@@ -225,7 +226,6 @@ private:
 
     inline auto draw() -> void
     {
-        
     }
 
     App::Application &app;
